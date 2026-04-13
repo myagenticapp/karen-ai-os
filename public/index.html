@@ -527,6 +527,7 @@ function clearStatus() {
 // ── Speech Recognition (dictado) ─────────────────────────────────────────────
 let recognition = null;
 let isRecording = false;
+let resultHandled = false;  // guard against duplicate firings on Android
 
 function toggleMic() {
   if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -541,13 +542,14 @@ function toggleMic() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
   recognition.lang = 'es-AR';
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  recognition.continuous = false;    // one phrase per press
+  recognition.interimResults = false; // no partials — avoids Android duplicates
 
-  let finalTranscript = document.getElementById('input-text').value;
+  resultHandled = false;
 
   recognition.onstart = () => {
     isRecording = true;
+    resultHandled = false;
     document.getElementById('btn-mic').classList.add('recording');
     document.getElementById('btn-mic').textContent = '⏹️';
     document.getElementById('mic-status').style.display = 'block';
@@ -555,20 +557,29 @@ function toggleMic() {
   };
 
   recognition.onresult = (e) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
-      else interim += e.results[i][0].transcript;
+    if (resultHandled) return;       // ignore any duplicate event
+    resultHandled = true;
+
+    const phrase = e.results[0][0].transcript.trim();
+    if (phrase) {
+      const textarea = document.getElementById('input-text');
+      const existing = textarea.value;
+      // append with a space separator if there's already text
+      textarea.value = existing ? existing.trimEnd() + ' ' + phrase : phrase;
     }
-    document.getElementById('input-text').value = finalTranscript + interim;
+
+    recognition.stop();
   };
 
   recognition.onerror = (e) => {
-    document.getElementById('mic-status').textContent = '⚠ Error: ' + e.error;
+    if (e.error !== 'no-speech') {
+      document.getElementById('mic-status').textContent = '⚠ Error: ' + e.error;
+    }
   };
 
   recognition.onend = () => {
     isRecording = false;
+    resultHandled = false;
     document.getElementById('btn-mic').classList.remove('recording');
     document.getElementById('btn-mic').textContent = '🎙️';
     document.getElementById('mic-status').textContent = '✓ Grabación finalizada';
