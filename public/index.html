@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karen AI OS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:       #152b5c;
+      --primary-light: #1e3f87;
+      --primary-pale:  #e8edf7;
+      --accent:        #2563eb;
+      --danger:        #dc2626;
+      --success:       #16a34a;
+      --warning:       #d97706;
+      --text:          #111827;
+      --text-muted:    #6b7280;
+      --border:        #e5e7eb;
+      --bg:            #f9fafb;
+      --white:         #ffffff;
+      --radius:        10px;
+      --shadow:        0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    header {
+      background: var(--primary);
+      color: var(--white);
+      padding: 0 1.25rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -.01em;
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,.15);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .header-sub { font-size: .72rem; opacity: .7; }
+
+    /* ── Layout ── */
+    .app { display: flex; flex: 1; }
+
+    /* ── Sidebar ── */
+    nav {
+      width: 220px;
+      background: var(--white);
+      border-right: 1px solid var(--border);
+      padding: 1.25rem 0;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+    }
+    nav button {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: .7rem 1.25rem;
+      text-align: left;
+      font-size: .9rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+      border-radius: 0;
+      transition: background .15s, color .15s;
+    }
+    nav button:hover { background: var(--primary-pale); color: var(--primary); }
+    nav button.active {
+      background: var(--primary-pale);
+      color: var(--primary);
+      font-weight: 600;
+      border-right: 3px solid var(--primary);
+    }
+    .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      padding: 1.75rem;
+      overflow-y: auto;
+      max-width: 900px;
+    }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    .section-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-muted);
+      margin-bottom: .75rem;
+    }
+
+    /* ── Form controls ── */
+    label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .4rem; color: var(--text); }
+    select, textarea, input[type="file"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .55rem .75rem;
+      font-size: .9rem;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--white);
+      transition: border-color .15s, box-shadow .15s;
+      margin-bottom: .9rem;
+    }
+    select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+    textarea { resize: vertical; min-height: 140px; line-height: 1.5; }
+
+    .mic-row {
+      display: flex;
+      align-items: flex-start;
+      gap: .6rem;
+      margin-bottom: .9rem;
+    }
+    .mic-row textarea { margin-bottom: 0; flex: 1; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .55rem 1.1rem;
+      border-radius: 8px;
+      font-size: .875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background .15s, transform .1s, box-shadow .15s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--primary); color: var(--white); }
+    .btn-primary:hover { background: var(--primary-light); box-shadow: 0 2px 8px rgba(21,43,92,.3); }
+    .btn-secondary { background: var(--primary-pale); color: var(--primary); }
+    .btn-secondary:hover { background: #d1daf0; }
+    .btn-danger { background: #fee2e2; color: var(--danger); }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-icon {
+      width: 40px; height: 40px; padding: 0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+    }
+    .btn-mic { background: var(--primary-pale); color: var(--primary); flex-shrink: 0; align-self: flex-end; }
+    .btn-mic.recording { background: #fee2e2; color: var(--danger); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.4); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
+
+    .btn-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .25rem; }
+
+    /* ── Status ── */
+    .status-msg {
+      margin-top: .75rem;
+      padding: .55rem .85rem;
+      border-radius: 8px;
+      font-size: .85rem;
+      font-weight: 500;
+      display: none;
+    }
+    .status-msg.info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .status-msg.success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+    .status-msg.error   { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+    .status-msg.show    { display: block; }
+
+    /* ── Result panel ── */
+    #result-panel { display: none; }
+    #result-panel.show { display: block; }
+
+    .result-block { margin-bottom: .85rem; }
+    .result-block-label {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--text-muted);
+      margin-bottom: .4rem;
+    }
+    .result-block-content {
+      font-size: .9rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .result-block-content ul { padding-left: 1.2rem; }
+    .result-block-content li { margin-bottom: .2rem; }
+
+    /* ── Divider ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+    /* ── Audio upload row ── */
+    .audio-section {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      background: var(--bg);
+    }
+    .audio-section label { margin-bottom: .5rem; }
+
+    /* ── Priority badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: .2rem .55rem;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .badge-alta    { background: #fee2e2; color: var(--danger); }
+    .badge-media   { background: #fef3c7; color: var(--warning); }
+    .badge-baja    { background: #f0fdf4; color: var(--success); }
+
+    /* ── Task card ── */
+    .task-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      margin-bottom: .65rem;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .task-card.status-hecha { opacity: .55; }
+    .task-info { flex: 1; min-width: 0; }
+    .task-title { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
+    .task-meta {
+      font-size: .78rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      margin-top: .35rem;
+    }
+    .task-actions {
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .task-status-select {
+      width: auto;
+      font-size: .78rem;
+      padding: .28rem .5rem;
+      margin-bottom: 0;
+      border-radius: 6px;
+    }
+
+    /* ── Interaction card ── */
+    .int-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      margin-bottom: .65rem;
+      box-shadow: var(--shadow);
+    }
+    .int-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: .5rem;
+      flex-wrap: wrap;
+      gap: .4rem;
+    }
+    .int-source {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      background: var(--primary-pale);
+      color: var(--primary);
+      padding: .2rem .55rem;
+      border-radius: 20px;
+    }
+    .int-date { font-size: .78rem; color: var(--text-muted); }
+    .int-summary { font-size: .875rem; line-height: 1.55; margin-bottom: .5rem; }
+    .int-next { font-size: .8rem; color: var(--text-muted); font-style: italic; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+    .empty-state p { font-size: .9rem; }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 680px) {
+      nav { width: 60px; }
+      nav button { padding: .7rem; justify-content: center; }
+      nav button span:not(.nav-icon) { display: none; }
+      nav button.active { border-right: none; border-bottom: 3px solid var(--primary); }
+      main { padding: 1rem; }
+      .task-card { flex-direction: column; }
+      .task-actions { flex-direction: row; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✦</div>
+    <div>
+      <div>Karen AI OS</div>
+      <div class="header-sub">Asistente ejecutiva inteligente</div>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <!-- Sidebar -->
+  <nav>
+    <button class="active" onclick="showSection('procesar', this)">
+      <span class="nav-icon">⚡</span><span>Procesar</span>
+    </button>
+    <button onclick="showSection('tareas', this)">
+      <span class="nav-icon">✅</span><span>Tareas</span>
+    </button>
+    <button onclick="showSection('interacciones', this)">
+      <span class="nav-icon">📋</span><span>Interacciones</span>
+    </button>
+  </nav>
+
+  <main>
+    <!-- ══ PROCESAR ══ -->
+    <section id="sec-procesar" class="active">
+      <div class="section-title">⚡ Procesar contenido</div>
+
+      <div class="card">
+        <div class="card-title">Tipo de fuente</div>
+        <select id="source-type">
+          <option value="reunión">Reunión</option>
+          <option value="llamada">Llamada</option>
+          <option value="mail">Mail / Email</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="nota">Nota de voz</option>
+          <option value="texto">Texto libre</option>
+        </select>
+      </div>
+
+      <!-- Text input -->
+      <div class="card">
+        <div class="card-title">Texto o transcripción</div>
+        <div class="mic-row">
+          <textarea id="input-text" placeholder="Pegá el texto de la reunión, mail, nota, o usá el micrófono para dictar..."></textarea>
+          <button class="btn btn-icon btn-mic" id="btn-mic" title="Dictado por voz" onclick="toggleMic()">🎙️</button>
+        </div>
+        <div id="mic-status" style="font-size:.78rem;color:var(--text-muted);margin-bottom:.5rem;display:none;"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-process-text" onclick="processText()">
+            ⚡ Procesar texto
+          </button>
+          <button class="btn btn-secondary" onclick="clearAll()">✕ Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Audio upload -->
+      <div class="card">
+        <div class="card-title">Procesar archivo de audio</div>
+        <div class="audio-section">
+          <label for="audio-file">Subir archivo de audio (mp3, m4a, wav, webm — máx. 25 MB)</label>
+          <input type="file" id="audio-file" accept="audio/*" />
+          <button class="btn btn-secondary" id="btn-process-audio" onclick="processAudio()">
+            🎵 Procesar audio
+          </button>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-msg" id="status-msg"></div>
+
+      <!-- Result -->
+      <div class="card" id="result-panel">
+        <div class="card-title">Resultado del análisis</div>
+
+        <div class="result-block" id="res-transcripcion" style="display:none;">
+          <div class="result-block-label">Transcripción</div>
+          <div class="result-block-content" id="res-transcripcion-val"></div>
+        </div>
+        <hr class="divider" id="res-trans-divider" style="display:none;" />
+
+        <div class="result-block">
+          <div class="result-block-label">Resumen</div>
+          <div class="result-block-content" id="res-summary"></div>
+        </div>
+        <hr class="divider" />
+
+        <div class="result-block">
+          <div class="result-block-label">Objetivos</div>
+          <div class="result-block-content" id="res-objectives"></div>
+        </div>
+        <hr class="divider" />
+
+        <div class="result-block">
+          <div class="result-block-label">Decisiones</div>
+          <div class="result-block-content" id="res-decisions"></div>
+        </div>
+        <hr class="divider" />
+
+        <div class="result-block">
+          <div class="result-block-label">Tareas detectadas</div>
+          <div class="result-block-content" id="res-tasks"></div>
+        </div>
+        <hr class="divider" />
+
+        <div class="result-block">
+          <div class="result-block-label">Próximo paso</div>
+          <div class="result-block-content" id="res-next"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ TAREAS ══ -->
+    <section id="sec-tareas">
+      <div class="section-title">
+        ✅ Tareas
+        <button class="btn btn-secondary" style="margin-left:auto;font-size:.8rem;" onclick="loadTasks()">↺ Actualizar</button>
+      </div>
+      <div id="tasks-container"></div>
+    </section>
+
+    <!-- ══ INTERACCIONES ══ -->
+    <section id="sec-interacciones">
+      <div class="section-title">
+        📋 Interacciones
+        <button class="btn btn-secondary" style="margin-left:auto;font-size:.8rem;" onclick="loadInteractions()">↺ Actualizar</button>
+      </div>
+      <div id="interactions-container"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ── Navigation ───────────────────────────────────────────────────────────────
+function showSection(name, btn) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'tareas') loadTasks();
+  if (name === 'interacciones') loadInteractions();
+}
+
+// ── Status message ───────────────────────────────────────────────────────────
+function setStatus(msg, type = 'info') {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = `status-msg ${type} show`;
+}
+function clearStatus() {
+  const el = document.getElementById('status-msg');
+  el.className = 'status-msg';
+}
+
+// ── Speech Recognition (dictado) ─────────────────────────────────────────────
+let recognition = null;
+let isRecording = false;
+
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    alert('Tu navegador no soporta reconocimiento de voz. Probá con Chrome o Edge.');
+    return;
+  }
+  if (isRecording) {
+    recognition.stop();
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'es-AR';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  let finalTranscript = document.getElementById('input-text').value;
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('btn-mic').classList.add('recording');
+    document.getElementById('btn-mic').textContent = '⏹️';
+    document.getElementById('mic-status').style.display = 'block';
+    document.getElementById('mic-status').textContent = '🔴 Grabando... hablá ahora';
+  };
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById('input-text').value = finalTranscript + interim;
+  };
+
+  recognition.onerror = (e) => {
+    document.getElementById('mic-status').textContent = '⚠ Error: ' + e.error;
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('btn-mic').classList.remove('recording');
+    document.getElementById('btn-mic').textContent = '🎙️';
+    document.getElementById('mic-status').textContent = '✓ Grabación finalizada';
+    setTimeout(() => { document.getElementById('mic-status').style.display = 'none'; }, 3000);
+  };
+
+  recognition.start();
+}
+
+// ── Process text ──────────────────────────────────────────────────────────────
+async function processText() {
+  const text = document.getElementById('input-text').value.trim();
+  const sourceType = document.getElementById('source-type').value;
+  if (!text) { setStatus('Por favor ingresá un texto antes de procesar.', 'error'); return; }
+
+  const btn = document.getElementById('btn-process-text');
+  btn.innerHTML = '<span class="spinner"></span> Procesando...';
+  btn.disabled = true;
+  setStatus('Enviando a la IA, esto puede tardar unos segundos...', 'info');
+  hideResult();
+
+  try {
+    const res = await fetch('/api/process-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, sourceType }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Error del servidor');
+    showResult(json.data, null);
+    setStatus('✓ Procesado correctamente y guardado en el sistema.', 'success');
+  } catch (err) {
+    setStatus('Error: ' + err.message, 'error');
+  } finally {
+    btn.innerHTML = '⚡ Procesar texto';
+    btn.disabled = false;
+  }
+}
+
+// ── Process audio ─────────────────────────────────────────────────────────────
+async function processAudio() {
+  const file = document.getElementById('audio-file').files[0];
+  const sourceType = document.getElementById('source-type').value;
+  if (!file) { setStatus('Por favor seleccioná un archivo de audio.', 'error'); return; }
+
+  const btn = document.getElementById('btn-process-audio');
+  btn.innerHTML = '<span class="spinner" style="border-top-color:var(--primary)"></span> Transcribiendo...';
+  btn.disabled = true;
+  setStatus('Transcribiendo audio con Whisper AI, aguardá...', 'info');
+  hideResult();
+
+  const fd = new FormData();
+  fd.append('audio', file);
+  fd.append('sourceType', sourceType);
+
+  try {
+    const res = await fetch('/api/process-audio', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Error del servidor');
+    showResult(json.data, json.transcription);
+    setStatus('✓ Audio transcripto y procesado correctamente.', 'success');
+  } catch (err) {
+    setStatus('Error: ' + err.message, 'error');
+  } finally {
+    btn.innerHTML = '🎵 Procesar audio';
+    btn.disabled = false;
+  }
+}
+
+// ── Render result ─────────────────────────────────────────────────────────────
+function showResult(data, transcription) {
+  const panel = document.getElementById('result-panel');
+  panel.classList.add('show');
+
+  // Transcripción (solo audio)
+  const transBlock = document.getElementById('res-transcripcion');
+  const transDivider = document.getElementById('res-trans-divider');
+  if (transcription) {
+    transBlock.style.display = 'block';
+    transDivider.style.display = 'block';
+    document.getElementById('res-transcripcion-val').textContent = transcription;
+  } else {
+    transBlock.style.display = 'none';
+    transDivider.style.display = 'none';
+  }
+
+  document.getElementById('res-summary').textContent = data.summary || '—';
+
+  document.getElementById('res-objectives').innerHTML = renderList(data.objectives);
+  document.getElementById('res-decisions').innerHTML = renderList(data.decisions);
+
+  document.getElementById('res-tasks').innerHTML = renderTasks(data.tasks);
+  document.getElementById('res-next').textContent = data.next_step || '—';
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideResult() {
+  document.getElementById('result-panel').classList.remove('show');
+}
+
+function renderList(arr) {
+  if (!arr || arr.length === 0) return '<em style="color:var(--text-muted)">Ninguno detectado</em>';
+  return '<ul>' + arr.map(i => `<li>${escHtml(i)}</li>`).join('') + '</ul>';
+}
+
+function renderTasks(tasks) {
+  if (!tasks || tasks.length === 0) return '<em style="color:var(--text-muted)">Ninguna tarea detectada</em>';
+  return tasks.map(t => `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem;margin-bottom:.5rem;background:var(--bg);">
+      <div style="font-weight:600;font-size:.875rem;margin-bottom:.3rem;">${escHtml(t.title)}</div>
+      <div style="font-size:.77rem;color:var(--text-muted);display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+        <span>👤 ${escHtml(t.responsible || 'Karen')}</span>
+        <span>📅 ${t.due_date || 'Sin fecha'}</span>
+        <span class="badge badge-${t.priority}">${t.priority}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function clearAll() {
+  document.getElementById('input-text').value = '';
+  document.getElementById('audio-file').value = '';
+  hideResult();
+  clearStatus();
+}
+
+// ── Tasks section ─────────────────────────────────────────────────────────────
+async function loadTasks() {
+  const container = document.getElementById('tasks-container');
+  container.innerHTML = '<p style="color:var(--text-muted);padding:1rem;">Cargando tareas...</p>';
+  try {
+    const res = await fetch('/api/tasks');
+    const tasks = await res.json();
+    if (!res.ok) throw new Error(tasks.error);
+    renderTaskList(tasks);
+  } catch (err) {
+    container.innerHTML = `<p style="color:var(--danger);">Error al cargar: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderTaskList(tasks) {
+  const container = document.getElementById('tasks-container');
+  if (tasks.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <p>No hay tareas aún. Procesá una reunión o texto para generar tareas.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = tasks.map(t => `
+    <div class="task-card status-${t.status}" id="task-${t.id}">
+      <div class="task-info">
+        <div class="task-title">${escHtml(t.title)}</div>
+        <div class="task-meta">
+          <span class="badge badge-${t.priority}">${t.priority}</span>
+          <span>👤 ${escHtml(t.responsible)}</span>
+          ${t.due_date ? `<span>📅 ${formatDate(t.due_date)}</span>` : '<span style="opacity:.6">Sin fecha</span>'}
+        </div>
+      </div>
+      <div class="task-actions">
+        <select class="task-status-select" onchange="updateTaskStatus(${t.id}, this.value)">
+          <option value="pendiente"   ${t.status==='pendiente'   ? 'selected':''}>Pendiente</option>
+          <option value="en_progreso" ${t.status==='en_progreso' ? 'selected':''}>En progreso</option>
+          <option value="hecha"       ${t.status==='hecha'       ? 'selected':''}>Hecha ✓</option>
+        </select>
+        <button class="btn btn-danger" style="font-size:.75rem;padding:.3rem .6rem;" onclick="deleteTask(${t.id})">✕ Eliminar</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function updateTaskStatus(id, status) {
+  try {
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const card = document.getElementById('task-' + id);
+    card.className = `task-card status-${status}`;
+  } catch (err) {
+    alert('Error al actualizar: ' + err.message);
+  }
+}
+
+async function deleteTask(id) {
+  if (!confirm('¿Eliminar esta tarea?')) return;
+  try {
+    const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).error);
+    document.getElementById('task-' + id).remove();
+    if (document.getElementById('tasks-container').children.length === 0) loadTasks();
+  } catch (err) {
+    alert('Error al eliminar: ' + err.message);
+  }
+}
+
+// ── Interactions section ──────────────────────────────────────────────────────
+async function loadInteractions() {
+  const container = document.getElementById('interactions-container');
+  container.innerHTML = '<p style="color:var(--text-muted);padding:1rem;">Cargando interacciones...</p>';
+  try {
+    const res = await fetch('/api/interactions');
+    const ints = await res.json();
+    if (!res.ok) throw new Error(ints.error);
+    renderInteractionList(ints);
+  } catch (err) {
+    container.innerHTML = `<p style="color:var(--danger);">Error al cargar: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function renderInteractionList(ints) {
+  const container = document.getElementById('interactions-container');
+  if (ints.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <p>No hay interacciones registradas todavía.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = ints.map(i => {
+    let objs = [], decs = [];
+    try { objs = JSON.parse(i.objectives); } catch (_) {}
+    try { decs = JSON.parse(i.decisions); } catch (_) {}
+    return `
+    <div class="int-card">
+      <div class="int-card-header">
+        <span class="int-source">${escHtml(i.source_type)}</span>
+        <span class="int-date">${formatDateTime(i.created_at)}</span>
+      </div>
+      <div class="int-summary">${escHtml(i.summary)}</div>
+      ${objs.length ? `<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.3rem;"><strong>Objetivos:</strong> ${objs.map(escHtml).join(' · ')}</div>` : ''}
+      ${decs.length ? `<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.3rem;"><strong>Decisiones:</strong> ${decs.map(escHtml).join(' · ')}</div>` : ''}
+      ${i.next_step ? `<div class="int-next">→ ${escHtml(i.next_step)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '—';
+  const date = new Date(dt.replace(' ', 'T') + 'Z');
+  return date.toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(xcopy \"G:\\\\Mi unidad\\\\kgh35\\\\Nuevos negocios\\\\Labo\\\\Karen\" \"C:\\\\karen-ai-os\" /E /I /H /Y /EXCLUDE:\"G:\\\\Mi unidad\\\\kgh35\\\\Nuevos negocios\\\\Labo\\\\Karen\\\\node_modules\")",
+      "Bash(mkdir -p /c/karen-ai-os)",
+      "Bash(cp -r \"G:/Mi unidad/kgh35/Nuevos negocios/Labo/Karen/.\" /c/karen-ai-os/)"
+    ]
+  }
+}
