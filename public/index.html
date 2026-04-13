@@ -487,6 +487,7 @@
       <div class="section-title">
         ✅ Tareas
         <button class="btn btn-secondary" style="margin-left:auto;font-size:.8rem;" onclick="loadTasks()">↺ Actualizar</button>
+        <button class="btn btn-danger" style="font-size:.8rem;" onclick="clearAllTasks()">🗑 Limpiar todo</button>
       </div>
       <div id="tasks-container"></div>
     </section>
@@ -496,6 +497,7 @@
       <div class="section-title">
         📋 Interacciones
         <button class="btn btn-secondary" style="margin-left:auto;font-size:.8rem;" onclick="loadInteractions()">↺ Actualizar</button>
+        <button class="btn btn-danger" style="font-size:.8rem;" onclick="clearAllInteractions()">🗑 Limpiar todo</button>
       </div>
       <div id="interactions-container"></div>
     </section>
@@ -820,6 +822,29 @@ function renderInteractionList(ints) {
       ${i.next_step ? `<div class="int-next">→ ${escHtml(i.next_step)}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+async function clearAllTasks() {
+  if (!confirm('¿Eliminar TODAS las tareas? Esta acción no se puede deshacer.')) return;
+  try {
+    const res = await fetch('/api/admin/tasks', { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).error);
+    loadTasks();
+  } catch (err) {
+    alert('Error al limpiar tareas: ' + err.message);
+  }
+}
+
+async function clearAllInteractions() {
+  if (!confirm('¿Eliminar TODAS las interacciones? Esta acción no se puede deshacer.')) return;
+  try {
+    const res = await fetch('/api/admin/interactions', { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).error);
+    loadInteractions();
+  } catch (err) {
+    alert('Error al limpiar interacciones: ' + err.message);
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

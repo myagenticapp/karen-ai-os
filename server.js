@@ -282,6 +282,28 @@ app.get('/api/interactions', async (_req, res) => {
   }
 });
 
+// DELETE /api/admin/tasks
+app.delete('/api/admin/tasks', async (_req, res) => {
+  try {
+    await db.execute('DELETE FROM tasks');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[admin-delete-tasks]', err);
+    res.status(500).json({ error: 'Error al eliminar las tareas.' });
+  }
+});
+
+// DELETE /api/admin/interactions
+app.delete('/api/admin/interactions', async (_req, res) => {
+  try {
+    await db.execute('DELETE FROM interactions');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[admin-delete-interactions]', err);
+    res.status(500).json({ error: 'Error al eliminar las interacciones.' });
+  }
+});
+
 // ── Start ────────────────────────────────────────────────────────────────────
 initDb()
   .then(() => {
