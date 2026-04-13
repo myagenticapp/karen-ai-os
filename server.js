@@ -3,7 +3,7 @@ dotenv.config();
 
 import express from 'express';
 import multer from 'multer';
-import Database from 'better-sqlite3';
+import { createClient } from '@libsql/client';
 import OpenAI from 'openai';
 import { createReadStream, mkdirSync, existsSync } from 'fs';
 import { unlink } from 'fs/promises';
@@ -23,33 +23,35 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ── Database ─────────────────────────────────────────────────────────────────
-const db = new Database(path.join(__dirname, 'karen.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const db = createClient({ url: `file:${path.join(__dirname, 'karen.db')}` });
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS interactions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_type TEXT    NOT NULL,
-    original_text TEXT  NOT NULL,
-    summary     TEXT    NOT NULL,
-    objectives  TEXT    NOT NULL DEFAULT '[]',
-    decisions   TEXT    NOT NULL DEFAULT '[]',
-    next_step   TEXT    NOT NULL DEFAULT '',
-    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-  );
+async function initDb() {
+  await db.execute('PRAGMA journal_mode = WAL');
+  await db.execute('PRAGMA foreign_keys = ON');
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS interactions (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_type   TEXT    NOT NULL,
+      original_text TEXT    NOT NULL,
+      summary       TEXT    NOT NULL,
+      objectives    TEXT    NOT NULL DEFAULT '[]',
+      decisions     TEXT    NOT NULL DEFAULT '[]',
+      next_step     TEXT    NOT NULL DEFAULT '',
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS tasks (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    interaction_id INTEGER REFERENCES interactions(id) ON DELETE SET NULL,
-    title          TEXT    NOT NULL,
-    responsible    TEXT    NOT NULL DEFAULT 'Karen',
-    due_date       TEXT,
-    priority       TEXT    NOT NULL DEFAULT 'media' CHECK(priority IN ('alta','media','baja')),
-    status         TEXT    NOT NULL DEFAULT 'pendiente' CHECK(status IN ('pendiente','en_progreso','hecha')),
-    created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
-  );
-`);
+    CREATE TABLE IF NOT EXISTS tasks (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      interaction_id INTEGER REFERENCES interactions(id) ON DELETE SET NULL,
+      title          TEXT    NOT NULL,
+      responsible    TEXT    NOT NULL DEFAULT 'Karen',
+      due_date       TEXT,
+      priority       TEXT    NOT NULL DEFAULT 'media' CHECK(priority IN ('alta','media','baja')),
+      status         TEXT    NOT NULL DEFAULT 'pendiente' CHECK(status IN ('pendiente','en_progreso','hecha')),
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+}
 
 // ── Multer ───────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -133,43 +135,38 @@ async function transcribeAudio(filePath) {
   return transcription.text;
 }
 
-function saveInteractionAndTasks(sourceType, originalText, structured) {
-  const insertInteraction = db.prepare(`
-    INSERT INTO interactions (source_type, original_text, summary, objectives, decisions, next_step)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertTask = db.prepare(`
-    INSERT INTO tasks (interaction_id, title, responsible, due_date, priority, status)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  const run = db.transaction(() => {
-    const result = insertInteraction.run(
+async function saveInteractionAndTasks(sourceType, originalText, structured) {
+  const intResult = await db.execute({
+    sql: `INSERT INTO interactions (source_type, original_text, summary, objectives, decisions, next_step)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [
       sourceType,
       originalText,
       structured.summary || '',
       JSON.stringify(structured.objectives || []),
       JSON.stringify(structured.decisions || []),
-      structured.next_step || ''
-    );
-    const interactionId = result.lastInsertRowid;
+      structured.next_step || '',
+    ],
+  });
 
-    for (const task of structured.tasks || []) {
-      insertTask.run(
+  const interactionId = Number(intResult.lastInsertRowid);
+
+  for (const task of structured.tasks || []) {
+    await db.execute({
+      sql: `INSERT INTO tasks (interaction_id, title, responsible, due_date, priority, status)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [
         interactionId,
         task.title,
         task.responsible || 'Karen',
         task.due_date || null,
         ['alta', 'media', 'baja'].includes(task.priority) ? task.priority : 'media',
-        'pendiente'
-      );
-    }
+        'pendiente',
+      ],
+    });
+  }
 
-    return interactionId;
-  });
-
-  return run();
+  return interactionId;
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -186,7 +183,7 @@ app.post('/api/process-text', async (req, res) => {
     }
 
     const structured = await structureExecutiveText(text.trim(), sourceType);
-    const interactionId = saveInteractionAndTasks(sourceType, text.trim(), structured);
+    const interactionId = await saveInteractionAndTasks(sourceType, text.trim(), structured);
 
     res.json({ success: true, interactionId, data: structured });
   } catch (err) {
@@ -206,7 +203,7 @@ app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
 
     const transcription = await transcribeAudio(filePath);
     const structured = await structureExecutiveText(transcription, sourceType);
-    const interactionId = saveInteractionAndTasks(sourceType, transcription, structured);
+    const interactionId = await saveInteractionAndTasks(sourceType, transcription, structured);
 
     res.json({ success: true, interactionId, transcription, data: structured });
   } catch (err) {
@@ -218,17 +215,17 @@ app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
 });
 
 // GET /api/tasks
-app.get('/api/tasks', (_req, res) => {
+app.get('/api/tasks', async (_req, res) => {
   try {
-    const tasks = db.prepare(`
+    const result = await db.execute(`
       SELECT * FROM tasks
       ORDER BY
         CASE priority WHEN 'alta' THEN 1 WHEN 'media' THEN 2 WHEN 'baja' THEN 3 END,
         CASE WHEN due_date IS NULL THEN 1 ELSE 0 END,
         due_date ASC,
         created_at DESC
-    `).all();
-    res.json(tasks);
+    `);
+    res.json(result.rows);
   } catch (err) {
     console.error('[get-tasks]', err);
     res.status(500).json({ error: 'Error al obtener las tareas.' });
@@ -236,7 +233,7 @@ app.get('/api/tasks', (_req, res) => {
 });
 
 // PATCH /api/tasks/:id
-app.patch('/api/tasks/:id', (req, res) => {
+app.patch('/api/tasks/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -244,8 +241,11 @@ app.patch('/api/tasks/:id', (req, res) => {
     if (!allowed.includes(status)) {
       return res.status(400).json({ error: `Estado inválido. Opciones: ${allowed.join(', ')}` });
     }
-    const result = db.prepare('UPDATE tasks SET status = ? WHERE id = ?').run(status, id);
-    if (result.changes === 0) return res.status(404).json({ error: 'Tarea no encontrada.' });
+    const result = await db.execute({
+      sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+      args: [status, id],
+    });
+    if (result.rowsAffected === 0) return res.status(404).json({ error: 'Tarea no encontrada.' });
     res.json({ success: true });
   } catch (err) {
     console.error('[patch-task]', err);
@@ -254,11 +254,14 @@ app.patch('/api/tasks/:id', (req, res) => {
 });
 
 // DELETE /api/tasks/:id
-app.delete('/api/tasks/:id', (req, res) => {
+app.delete('/api/tasks/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
-    if (result.changes === 0) return res.status(404).json({ error: 'Tarea no encontrada.' });
+    const result = await db.execute({
+      sql: 'DELETE FROM tasks WHERE id = ?',
+      args: [id],
+    });
+    if (result.rowsAffected === 0) return res.status(404).json({ error: 'Tarea no encontrada.' });
     res.json({ success: true });
   } catch (err) {
     console.error('[delete-task]', err);
@@ -267,12 +270,12 @@ app.delete('/api/tasks/:id', (req, res) => {
 });
 
 // GET /api/interactions
-app.get('/api/interactions', (_req, res) => {
+app.get('/api/interactions', async (_req, res) => {
   try {
-    const interactions = db.prepare(`
-      SELECT * FROM interactions ORDER BY created_at DESC
-    `).all();
-    res.json(interactions);
+    const result = await db.execute(
+      'SELECT * FROM interactions ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
   } catch (err) {
     console.error('[get-interactions]', err);
     res.status(500).json({ error: 'Error al obtener las interacciones.' });
@@ -280,6 +283,13 @@ app.get('/api/interactions', (_req, res) => {
 });
 
 // ── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Karen AI OS corriendo en http://localhost:${PORT}`);
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Karen AI OS corriendo en http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Error al inicializar la base de datos:', err);
+    process.exit(1);
+  });
